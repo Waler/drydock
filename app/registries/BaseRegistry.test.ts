@@ -134,6 +134,25 @@ test('authenticateBearer should attach CA from cafile when configured', async ()
   }
 });
 
+test('authenticateBearer should attach mtls cert and key when configured', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'drydock-baseregistry-'));
+  const clientCertPath = path.join(tempDir, 'clientcert.pem');
+  const clientKeyPath = path.join(tempDir, 'clientkey.pem');
+  try {
+    fs.writeFileSync(clientCertPath, 'test-client-cert-content');
+    fs.writeFileSync(clientKeyPath, 'test-client-key-content');
+    baseRegistry.configuration = { clientcertfile: clientCertPath, clientkeyfile: clientKeyPath };
+    const result = await baseRegistry.authenticateBearer({ headers: {} }, 'token-value');
+    expect(result.headers.Authorization).toBe('Bearer token-value');
+    expect(result.httpsAgent).toBeDefined();
+    expect(result.httpsAgent.options.rejectUnauthorized).toBe(true);
+    expect(result.httpsAgent.options.cert.toString('utf-8')).toBe('test-client-cert-content');
+    expect(result.httpsAgent.options.key.toString('utf-8')).toBe('test-client-key-content');
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('getAuthCredentials should return auth when set', () => {
   baseRegistry.configuration = { auth: 'base64-auth' };
   expect(baseRegistry.getAuthCredentials()).toBe('base64-auth');
